@@ -1,16 +1,24 @@
 """
-addition.py - level 1 (basic version)
+addition.py - level 2 (now with input validation)
 student: Memije | branch: addition_Memije
 """
 
-from operations import register
+from operations import register, CalculatorError
+
+
+def check_number(value):
+    # the main calculator already checks stuff, but my teacher says never trust
+    # inputs, so addition double checks on its own
+    # (True and False count as numbers in python which is so weird, so we block them)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise CalculatorError(f"addition needs numbers but got '{value}'")
 
 
 def add(a, b):
-    # ok so this just adds the two numbers. literally the easiest one lol
+    """adds two numbers after making sure they are actually numbers"""
+    check_number(a)
+    check_number(b)
     return a + b
 
 
-# this line is how the calculator finds me. it says "hey put me in the menu"
-# order=1 means i show up first in the list
 register(name="Addition", symbol="+", func=add, order=1)
