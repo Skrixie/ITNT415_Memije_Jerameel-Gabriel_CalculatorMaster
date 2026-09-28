@@ -1,25 +1,83 @@
 """
-Calculator Master - main skeleton (hybrid edition)
-student: Memije | course: BIT
-
-ok so this is the base of the whole project. it has NO math in it on purpose.
-every operation lives in its own file inside operations/ and gets added by its
-own git branch. once a branch is merged the calculator finds the new file by
-itself, so this file never has to change.
+Calculator Master - main (PINAGPUYATAN EDITION)
+student: Memije, Jerameel Gabriel P. | course: BIT
 
 how to run:
     python3 calculator.py          -> menu in the terminal (default)
     python3 calculator.py --gui    -> little pop up window version
+
+terminal shortcuts:
+    H      show your history
+    0      exit (q also works)
+    b      go back to the menu while typing numbers
+    ans    reuse your last answer as a number
 """
 
 import math
+import os
 import sys
 
 from operations import CalculatorError, load_operations
 
+try:
+    # this makes arrow keys and backspace work better when typing
+    import readline
+except ImportError:
+    pass
+
 
 # ---------------------------------------------------------------------------
-# shared stuff (the terminal AND the window both use these)
+# ui
+# ---------------------------------------------------------------------------
+
+# only use colors if we're in a real terminal (so screenshots and pipes dont get junk)
+USE_COLOR = sys.stdout.isatty() and "NO_COLOR" not in os.environ
+
+# only use the fancy box characters if the terminal can actually show them
+FANCY = (sys.stdout.encoding or "").lower().replace("-", "").startswith("utf")
+
+if FANCY:
+    TL, TR, BL, BR, HL, VL, LT, RT = "╔", "╗", "╚", "╝", "═", "║", "╠", "╣"
+    OK_MARK, BAD_MARK, DASH, ARROW = "✔", "✘", "──", "›"
+else:
+    TL = TR = BL = BR = LT = RT = "+"
+    HL, VL = "-", "|"
+    OK_MARK, BAD_MARK, DASH, ARROW = "OK", "X", "--", ">"
+
+BOX_WIDTH = 40
+
+
+def paint(text, code):
+    # wraps text in a color code. code is stuff like "32;1" (bold green)
+    if USE_COLOR:
+        return f"\033[{code}m{text}\033[0m"
+    return text
+
+
+def print_box(title, rows):
+    # rows is a list of (text, color_code). the box grows if a row is too long
+    # (padding is worked out BEFORE coloring or the right side wouldnt line up)
+    width = max(BOX_WIDTH, len(title) + 2, max((len(t) for t, _ in rows), default=0) + 2)
+    edge = "36"  # cyan borders
+
+    print(paint(TL + HL * width + TR, edge))
+    print(paint(VL, edge) + paint(title.center(width), "1;36") + paint(VL, edge))
+    print(paint(LT + HL * width + RT, edge))
+    for text, code in rows:
+        print(paint(VL, edge) + paint((" " + text).ljust(width), code) + paint(VL, edge))
+    print(paint(BL + HL * width + BR, edge))
+
+
+def ask(prompt):
+    # the weird \001 and \002 tell readline "these characters are invisible"
+    # so the cursor doesnt get confused by the color codes
+    if USE_COLOR:
+        prompt = "\001\033[36;1m\002" + prompt + "\001\033[0m\002"
+    return input(prompt)
+
+
+# ---------------------------------------------------------------------------
+# shared
 # ---------------------------------------------------------------------------
 
 def format_number(value):
@@ -41,78 +99,145 @@ def is_good_number(value):
 def do_calculation(op, a, b):
     # this is the brain. the terminal and the window both call this, so the
     # error handling only has to be written one time (way less work)
-    # it gives back (worked_or_not, text_to_show)
+    # it gives back (worked_or_not, text_to_show, the_actual_answer)
     try:
         result = op["func"](a, b)
     except CalculatorError as err:
         # errors the operation files raise on purpose
-        return False, str(err)
+        return False, str(err), None
     except ArithmeticError as err:
         # safety net in case some math error sneaks through
-        return False, f"math error: {err}"
+        return False, f"math error: {err}", None
 
-    return True, f"{format_number(a)} {op['symbol']} {format_number(b)} = {format_number(result)}"
+    message = f"{format_number(a)} {op['symbol']} {format_number(b)} = {format_number(result)}"
+    return True, message, result
 
 
 # ---------------------------------------------------------------------------
-# terminal mode (the menu driven part from the assignment)
+# terminal mode
 # ---------------------------------------------------------------------------
+
+class GoBack(Exception):
+    # raised when the user types "b" so we can bail out to the menu
+    pass
+
 
 def show_menu(ops):
-    print("\n===== CALCULATOR MASTER =====")
+    rows = []
     if not ops:
-        print("(no operations loaded yet - merge a branch first)")
+        rows.append(("(no operations loaded yet)", "33"))
+
     # the menu builds itself from whatever operations got loaded
     for number, op in enumerate(ops, start=1):
-        print(f"{number}. {op['name']}")
-    print(f"{len(ops) + 1}. Exit")
+        rows.append((f"[{number}] {op['name']:<16}( {op['symbol']} )", "0"))
+
+    rows.append(("", "0"))  # empty row so its spaced out
+    rows.append(("[H] History", "33"))
+    rows.append(("[0] Exit", "31"))
+
+    print()
+    print_box("CALCULATOR MASTER", rows)
 
 
-def ask_for_number(prompt):
+def show_history(history):
+    if not history:
+        rows = [("nothing yet, go do some math!", "33")]
+    else:
+        # only show the last 10 so it doesnt get huge
+        recent = history[-10:]
+        first_number = len(history) - len(recent) + 1
+        rows = []
+        for number, (worked, text) in enumerate(recent, start=first_number):
+            mark = OK_MARK if worked else BAD_MARK
+            rows.append((f"{number}. {mark} {text}", "32" if worked else "31"))
+
+    print()
+    print_box("HISTORY", rows)
+
+
+def ask_for_number(label, last_answer):
     # keeps asking until the user types a real number, no crashing allowed
     while True:
-        text = input(prompt).strip()
+        text = ask(f"  {label} {ARROW} ").strip()
+        lowered = text.lower()
+
+        if lowered in ("b", "back"):
+            raise GoBack
+
+        if lowered == "ans":
+            if last_answer is None:
+                print(paint("  no previous answer yet, type a number instead", "33"))
+                continue
+            return last_answer
+
         try:
             value = float(text)
         except ValueError:
-            print("invalid input, numbers only pls (like 5 or 2.5)")
+            print(paint("  invalid input, numbers only pls (like 5 or 2.5)", "31"))
             continue
 
         if is_good_number(value):
             return value
-        print("thats not a real number, try again")
+        print(paint("  thats not a real number, try again", "31"))
 
 
 def run_cli(ops):
-    print("welcome to Calculator Master!")
-    exit_number = len(ops) + 1
+    history = []        # every calculation this session
+    last_answer = None  # so "ans" works
 
-    # keeps looping until the user picks exit
-    while True:
-        show_menu(ops)
-        choice = input(f"pick an option (1-{exit_number}): ").strip()
+    print()
+    print(paint("  welcome to Calculator Master!", "1;32"))
+    print(paint("  tip: run with --gui for the window version", "2"))
 
-        try:
-            number = int(choice)
-        except ValueError:
-            number = 0  # not even a number, so it fails the checks below
+    try:
+        # keeps looping until the user picks exit
+        while True:
+            show_menu(ops)
+            choice = ask(f"  pick an option {ARROW} ").strip().lower()
 
-        if number == exit_number:
-            print("thanks for using Calculator Master, bye!")
-            break
-        elif 1 <= number <= len(ops):
+            if choice in ("0", "q", "quit", "exit"):
+                break
+
+            if choice in ("h", "history"):
+                show_history(history)
+                continue
+
+            try:
+                number = int(choice)
+            except ValueError:
+                number = 0  # not even a number, so it fails the check below
+
+            if not 1 <= number <= len(ops):
+                print(paint("  thats not a valid option, check the menu and try again", "33"))
+                continue
+
             op = ops[number - 1]
-            a = ask_for_number("enter first number: ")
-            b = ask_for_number("enter second number: ")
-            worked, message = do_calculation(op, a, b)
-            print(("result: " if worked else "error: ") + message)
-        else:
-            print(f"thats not a valid option, pick 1-{exit_number}")
+            print()
+            print(paint(f"  {DASH} {op['name']} {DASH}", "1;35")
+                  + paint("   (b = back, ans = last answer)", "2"))
 
+            try:
+                a = ask_for_number("first number ", last_answer)
+                b = ask_for_number("second number", last_answer)
+            except GoBack:
+                print(paint("  ok, back to the menu", "2"))
+                continue
 
-# ---------------------------------------------------------------------------
-# window mode (bonus). tkinter comes with python so nothing to install
-# ---------------------------------------------------------------------------
+            worked, message, result = do_calculation(op, a, b)
+
+            if worked:
+                last_answer = result
+                history.append((True, message))
+                print(paint(f"  {OK_MARK} {message}", "32;1"))
+            else:
+                history.append((False, f"{op['name']}: {message}"))
+                print(paint(f"  {BAD_MARK} {message}", "31;1"))
+
+    except (KeyboardInterrupt, EOFError):
+        # ctrl+c or ctrl+d, just leave nicely instead of a scary traceback
+        print()
+
+    print(paint("\n  thanks for using Calculator Master, bye!\n", "1;32"))
 
 def run_gui(ops):
     import tkinter as tk
@@ -154,7 +279,7 @@ def run_gui(ops):
             messagebox.showerror("Invalid Input", "thats not a real number")
             return
 
-        worked, message = do_calculation(op, a, b)
+        worked, message, _ = do_calculation(op, a, b)
         if worked:
             result_label.config(text=message)
         else:
@@ -181,7 +306,7 @@ def run_gui(ops):
 
 
 # ---------------------------------------------------------------------------
-# start of the program
+# main
 # ---------------------------------------------------------------------------
 
 def main():
