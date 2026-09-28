@@ -1,0 +1,3 @@
+# python makes these cache folders automatically, no need to upload them
+__pycache__/
+*.pyc
