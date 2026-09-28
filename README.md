@@ -1,10 +1,6 @@
 # CalcuMator
-
-## Student Name
-Memije, Jerameel Gabriel P.
-
-## Course and Section
-BIT42
+Pinagpuyatan By: Memije, Jerameel Gabriel P.
+Grade and Section: BIT42
 
 ## Branch Structure
 - `main` - hybrid skeleton first, then the final integrated calculator after all four Pull Requests were merged
