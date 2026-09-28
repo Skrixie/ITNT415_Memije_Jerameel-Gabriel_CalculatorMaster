@@ -1,15 +1,23 @@
 """
-multiplication.py - level 1 (basic version)
+multiplication.py - level 2 (now with input validation)
 student: Memije | branch: multiplication_Memije
 """
 
-from operations import register
+from operations import register, CalculatorError
+
+
+def check_number(value):
+    # no strings allowed. in python "ab" * 3 actually WORKS and gives "ababab"
+    # which is funny but not what a calculator should do, so we block it
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise CalculatorError(f"multiplication needs numbers but got '{value}'")
 
 
 def multiply(a, b):
-    # times tables vibes. the star (*) is how python does multiplying
+    """multiplies two numbers after making sure they are real numbers"""
+    check_number(a)
+    check_number(b)
     return a * b
 
 
-# order=3 so multiplication shows up third in the menu
 register(name="Multiplication", symbol="*", func=multiply, order=3)
