@@ -1,16 +1,23 @@
 """
-subtraction.py - level 1 (basic version)
+subtraction.py - level 2 (now with input validation)
 student: Memije | branch: subtraction_Memije
 """
 
-from operations import register
+from operations import register, CalculatorError
+
+
+def check_number(value):
+    # making sure both inputs are real numbers before we do any math
+    # bool is secretly a number in python (True = 1) so it gets blocked too
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise CalculatorError(f"subtraction needs numbers but got '{value}'")
 
 
 def subtract(a, b):
-    # first number minus the second number
-    # order matters here (5 - 3 is NOT the same as 3 - 5, unlike addition)
+    """first number minus the second, but only if both are real numbers"""
+    check_number(a)
+    check_number(b)
     return a - b
 
 
-# tells the calculator to put me in the menu, order=2 so im second
 register(name="Subtraction", symbol="-", func=subtract, order=2)
