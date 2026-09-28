@@ -1,5 +1,5 @@
 ## CalcuMator
-#Pinagpuyatan By: Memije, Jerameel Gabriel P. /n
+Pinagpuyatan By: Memije, Jerameel Gabriel P. | 
 Grade and Section: BIT42
 
 ## Branch Structure
